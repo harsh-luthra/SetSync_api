@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { authenticate } from '../middleware/auth';
 import { AppError, asyncHandler } from '../middleware/errorHandler';
 import { requireRole } from '../middleware/requireRole';
-import { COL, createDoc, getDoc, listDocs, updateDoc } from '../services/appwrite.service';
+import { COL, createDoc, deleteDoc, getDoc, listDocs, updateDoc } from '../services/appwrite.service';
 import { notify } from '../services/notification.service';
 import type { Scene, ShootDay } from '../types';
 import { DIRECTION_ROLES } from '../types';
@@ -162,6 +162,16 @@ router.patch(
       true,
     );
     res.json({ scene });
+  }),
+);
+
+/** DELETE /scenes/:id — day editor needs to remove mistakes. */
+router.delete(
+  '/:id',
+  asyncHandler(async (req, res) => {
+    await getOwnScene(req.params.id, req.user!.projectId);
+    await deleteDoc(COL.SCENES, req.params.id);
+    res.json({ ok: true });
   }),
 );
 

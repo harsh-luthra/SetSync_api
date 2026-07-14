@@ -7,11 +7,14 @@ import './config/firebase'; // initialize FCM (or log that push is disabled)
 import { logger } from './config/logger';
 import { startJobs } from './jobs';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
+import actorCallsRouter from './routes/actorCalls';
 import actorsRouter from './routes/actors';
 import attendanceRouter from './routes/attendance';
 import callsheetRouter from './routes/callsheet';
 import costumesRouter from './routes/costumes';
 import notificationsRouter from './routes/notifications';
+import masterRouter from './routes/master';
+import projectsRouter from './routes/projects';
 import propsRouter from './routes/props';
 import scenesRouter from './routes/scenes';
 import scriptRouter from './routes/script';
@@ -37,8 +40,11 @@ app.get('/health', (_req, res) => res.json({ ok: true, service: 'setsync-api' })
 const api = express.Router();
 api.use(usersRouter); // /auth/bootstrap, /users/*, /crew*
 api.use(actorsRouter); // /actors/me/*, /print-requests/*
+api.use('/master', masterRouter);
+api.use('/projects', projectsRouter);
 api.use('/shootdays', shootdaysRouter);
 api.use('/scenes', scenesRouter);
+api.use('/actor-calls', actorCallsRouter);
 api.use('/costumes', costumesRouter);
 api.use('/props', propsRouter);
 api.use('/walkie', walkieRouter);

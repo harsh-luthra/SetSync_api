@@ -1,5 +1,8 @@
 node_modules/
 dist/
 .env
+setsync-admin.json
 *.log
 .DS_Store
+
+.env copy.example

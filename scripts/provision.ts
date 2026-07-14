@@ -60,6 +60,26 @@ async function ensure(label: string, fn: () => Promise<unknown>): Promise<void> 
   }
 }
 
+/**
+ * Get-first ensure: checks existence before creating. Needed because
+ * Appwrite evaluates plan limits BEFORE duplicate IDs — re-creating an
+ * existing resource on a maxed-out plan returns 403, not 409.
+ */
+async function ensureResource(
+  label: string,
+  get: () => Promise<unknown>,
+  create: () => Promise<unknown>,
+): Promise<void> {
+  try {
+    await get();
+    console.log(`  • ${label} (already exists)`);
+    return;
+  } catch (err) {
+    if (!(err instanceof AppwriteException) || err.code !== 404) throw err;
+  }
+  await ensure(label, create);
+}
+
 type Attr =
   | { kind: 'string'; key: string; size: number; required?: boolean; array?: boolean }
   | { kind: 'enum'; key: string; elements: string[]; required?: boolean; array?: boolean }
@@ -90,6 +110,7 @@ const COLLECTIONS: CollectionSpec[] = [
       { kind: 'string', key: 'authUserId', size: 64 },
       { kind: 'string', key: 'name', size: 128, required: true },
       { kind: 'string', key: 'phone', size: 32, required: true },
+      { kind: 'string', key: 'email', size: 256 },
       { kind: 'enum', key: 'role', elements: ROLES, required: true },
       { kind: 'string', key: 'projectId', size: 36, required: true },
       { kind: 'string', key: 'avatarFileId', size: 36 },
@@ -437,15 +458,21 @@ async function main(): Promise<void> {
   console.log(`Provisioning Appwrite project "${APPWRITE_PROJECT}" @ ${APPWRITE_ENDPOINT}\n`);
 
   console.log('Database:');
-  await ensure(`database ${DB}`, () => databases.create(DB, 'SetSync'));
+  await ensureResource(
+    `database ${DB}`,
+    () => databases.get(DB),
+    () => databases.create(DB, 'SetSync'),
+  );
 
   for (const spec of COLLECTIONS) {
     console.log(`\nCollection ${spec.id}:`);
     // documentSecurity=true, no collection-level client permissions:
     // per-document team read perms are set by the server; ALL writes go
     // through the Node API key (spec §3 permissions model).
-    await ensure(`collection ${spec.id}`, () =>
-      databases.createCollection(DB, spec.id, spec.name, [], true),
+    await ensureResource(
+      `collection ${spec.id}`,
+      () => databases.getCollection(DB, spec.id),
+      () => databases.createCollection(DB, spec.id, spec.name, [], true),
     );
     for (const attr of spec.attrs) {
       await createAttribute(spec.id, attr);
@@ -459,26 +486,45 @@ async function main(): Promise<void> {
   }
 
   console.log('\nStorage buckets:');
-  // scripts: NO permissions at all — only the server API key can access.
-  await ensure('bucket scripts', () =>
-    storage.createBucket('scripts', 'Scripts (server-only)', [], true, true, 100 * 1024 * 1024, ['pdf']),
-  );
-  // callsheets: fileSecurity — per-file team read perms set on upload.
-  await ensure('bucket callsheets', () =>
-    storage.createBucket('callsheets', 'Call Sheets', [], true, true, 20 * 1024 * 1024, ['pdf']),
-  );
-  // avatars: public read.
-  await ensure('bucket avatars', () =>
-    storage.createBucket(
-      'avatars',
-      'Avatars',
-      [Permission.read(Role.any())],
-      false,
-      true,
-      5 * 1024 * 1024,
-      ['jpg', 'jpeg', 'png', 'webp'],
-    ),
-  );
+  // The three logical buckets (scripts / callsheets / avatars) may share
+  // one physical bucket on the free plan (1-bucket limit). Isolation is
+  // per-file: scripts get NO read permissions (server-only), call sheets
+  // get team read, avatars get public read. fileSecurity=true + no
+  // bucket-level permissions makes per-file permissions authoritative.
+  const bucketPurposes: Record<string, { extensions: string[] }> = {};
+  const logical: { id: string | undefined; fallback: string; extensions: string[] }[] = [
+    { id: process.env.APPWRITE_BUCKET_SCRIPTS, fallback: 'scripts', extensions: ['pdf'] },
+    { id: process.env.APPWRITE_BUCKET_CALLSHEETS, fallback: 'scripts', extensions: ['pdf'] },
+    {
+      id: process.env.APPWRITE_BUCKET_AVATARS,
+      fallback: 'scripts',
+      extensions: ['jpg', 'jpeg', 'png', 'webp'],
+    },
+  ];
+  for (const { id, fallback, extensions } of logical) {
+    const bucketId = id || fallback;
+    bucketPurposes[bucketId] = {
+      extensions: [...new Set([...(bucketPurposes[bucketId]?.extensions ?? []), ...extensions])],
+    };
+  }
+  for (const [bucketId, { extensions }] of Object.entries(bucketPurposes)) {
+    // 50 MB — the maximum allowed on the Appwrite Cloud free plan
+    let exists = true;
+    try {
+      await storage.getBucket(bucketId);
+    } catch (err) {
+      if (!(err instanceof AppwriteException) || err.code !== 404) throw err;
+      exists = false;
+    }
+    if (exists) {
+      await storage.updateBucket(bucketId, 'SetSync Files', [], true, true, 50_000_000, extensions);
+      console.log(`  • bucket ${bucketId} (already exists — settings reconciled)`);
+    } else {
+      await ensure(`bucket ${bucketId}`, () =>
+        storage.createBucket(bucketId, 'SetSync Files', [], true, true, 50_000_000, extensions),
+      );
+    }
+  }
 
   await seed();
 
