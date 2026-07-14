@@ -11,11 +11,20 @@ const schema = z.object({
   APPWRITE_PROJECT: z.string().min(1),
   APPWRITE_API_KEY: z.string().min(1),
   APPWRITE_DATABASE_ID: z.string().default('setsync_db'),
+  // On the Appwrite free plan only one bucket is available — all three
+  // default to the same bucket; per-file permissions keep them isolated.
+  // On a paid plan, point these at three separate buckets.
+  APPWRITE_BUCKET_SCRIPTS: z.string().default('scripts'),
+  APPWRITE_BUCKET_CALLSHEETS: z.string().default('scripts'),
+  APPWRITE_BUCKET_AVATARS: z.string().default('scripts'),
 
   FCM_SERVICE_ACCOUNT_JSON: z.string().optional(),
 
   QR_HMAC_SECRET: z.string().min(16),
   URL_SIGN_SECRET: z.string().optional(),
+
+  // Comma-separated emails of master admins (may register director accounts)
+  MASTER_ADMIN_EMAILS: z.string().default(''),
 
   SEED_PROJECT_TITLE: z.string().optional(),
   SEED_PRODUCTION_HOUSE: z.string().optional(),
@@ -37,3 +46,6 @@ if (!parsed.success) {
 export const env = parsed.data;
 export const urlSignSecret = env.URL_SIGN_SECRET || env.QR_HMAC_SECRET;
 export const APP_TIMEZONE = 'Asia/Kolkata';
+export const masterEmails = env.MASTER_ADMIN_EMAILS.split(',')
+  .map((e) => e.trim().toLowerCase())
+  .filter(Boolean);

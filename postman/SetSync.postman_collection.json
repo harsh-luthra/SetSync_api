@@ -37,13 +37,71 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"phone\": \"+919800000001\",\n  \"name\": \"Asha Rao\",\n  \"role\": \"actor\"\n}"
+              "raw": "{\n  \"phone\": \"+919800000001\",\n  \"name\": \"Asha Rao\",\n  \"role\": \"actor\",\n  \"email\": \"asha@example.com\",\n  \"password\": \"TempPass#123\"\n}"
             }
           }
         },
         {
           "name": "List crew (admin)",
           "request": { "method": "GET", "url": "{{baseUrl}}/crew" }
+        }
+      ]
+    },
+    {
+      "name": "Master & Projects",
+      "item": [
+        {
+          "name": "Register director (master only)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/master/directors",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"New Director\",\n  \"email\": \"new.director@example.com\",\n  \"phone\": \"+919800000099\",\n  \"password\": \"ChangeMe#123\"\n}"
+            }
+          }
+        },
+        { "name": "List directors (master only)", "request": { "method": "GET", "url": "{{baseUrl}}/master/directors" } },
+        {
+          "name": "Reset director password (master only)",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/master/directors/:authUserId/password",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"password\": \"NewPass#123\"\n}" }
+          }
+        },
+        {
+          "name": "Reset crew password (direction roles)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/crew/:id/reset-password",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"password\": \"NewPass#123\"\n}" }
+          }
+        },
+        {
+          "name": "Create my project (director, first login)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/projects",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Pabesto_ka_Dhanda\",\n  \"productionHouse\": \"Dlf_corporate_greens\",\n  \"directorName\": \"Ajay\",\n  \"directorPhone\": \"+91-70156-45447\"\n}"
+            }
+          }
+        },
+        { "name": "My project", "request": { "method": "GET", "url": "{{baseUrl}}/projects/me" } },
+        {
+          "name": "Update my project",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/projects/me",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"shooting\"\n}" }
+          }
         }
       ]
     },
@@ -123,6 +181,48 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": { "mode": "raw", "raw": "{\n  \"status\": \"shooting\"\n}" }
           }
+        }
+      ]
+    },
+    {
+      "name": "Actor Calls",
+      "item": [
+        {
+          "name": "List calls of a day",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/actor-calls?shootDayId=<shootDayId>",
+              "host": ["{{baseUrl}}"],
+              "path": ["actor-calls"],
+              "query": [{ "key": "shootDayId", "value": "<shootDayId>" }]
+            }
+          }
+        },
+        {
+          "name": "Upsert actor call (create or update)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/actor-calls",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"shootDayId\": \"<shootDayId>\",\n  \"actorId\": \"<actorUserDocId>\",\n  \"pickupTime\": \"05:30\",\n  \"callTime\": \"07:00\",\n  \"makeupTime\": \"07:15\",\n  \"hairTime\": \"08:00\",\n  \"onSetTime\": \"09:00\",\n  \"lunchTime\": \"13:00\",\n  \"sceneIds\": [\"<sceneId>\"]\n}"
+            }
+          }
+        },
+        {
+          "name": "Update actor call",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/actor-calls/:id",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"callTime\": \"08:00\"\n}" }
+          }
+        },
+        {
+          "name": "Delete actor call",
+          "request": { "method": "DELETE", "url": "{{baseUrl}}/actor-calls/:id" }
         }
       ]
     },

@@ -68,9 +68,13 @@ The image installs Chromium for puppeteer (call-sheet PDF rendering).
 
 | Area | Endpoints |
 |---|---|
-| Auth & users | `POST /auth/bootstrap`, `POST /users/fcm-token`, `POST /crew/invite`, `GET /crew` |
+| Auth & users | `POST /auth/bootstrap` (returns `needsSetup`/`isMaster` flags), `POST /users/fcm-token`, `POST /crew/invite` (with email+password → creates the sign-in account instantly; phone-only → legacy OTP pre-registration), `GET /crew` |
+| Master admin | `POST /master/directors` (register director account), `GET /master/directors`, `PATCH /master/directors/:authUserId/password` (reset) — caller's email must be in `MASTER_ADMIN_EMAILS` |
+| Password reset | `POST /crew/:id/reset-password` — direction roles; only the director may reset another direction-role account; target's sessions are revoked |
+| Projects | `POST /projects` (in-app project setup, replaces SEED_* vars), `GET /projects/me`, `PATCH /projects/me` |
 | Shoot days | `POST /shootdays`, `PATCH /shootdays/:id`, `POST /shootdays/:id/publish`, `GET /shootdays/today\|tomorrow` (role-shaped) |
-| Scenes | `POST /scenes`, `PATCH /scenes/:id`, `PATCH /scenes/reorder`, `PATCH /scenes/:id/status` |
+| Scenes | `POST /scenes`, `PATCH /scenes/:id`, `PATCH /scenes/reorder`, `PATCH /scenes/:id/status`, `DELETE /scenes/:id` |
+| Actor calls | `GET /actor-calls?shootDayId=`, `POST /actor-calls` (upsert by shootDayId+actorId), `PATCH /actor-calls/:id`, `DELETE /actor-calls/:id` |
 | Actor | `GET /actors/me/today`, `POST /actors/me/print-request`, `PATCH /print-requests/:id/done` |
 | Costumes | `GET /costumes/today\|tomorrow`, `POST /costumes`, `PATCH /costumes/:id`, `PATCH /costumes/:id/status` (`broadcast` flag) |
 | Props | `GET /props[/today\|/tomorrow]`, `POST /props`, `PATCH /props/:id/status` (stage order enforced) |

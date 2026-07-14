@@ -52,6 +52,7 @@ export interface UserProfile extends AppwriteDoc {
   authUserId?: string;
   name: string;
   phone: string;
+  email?: string;
   role: Role;
   projectId: string;
   avatarFileId?: string;
