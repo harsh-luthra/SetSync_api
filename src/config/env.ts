@@ -26,6 +26,11 @@ const schema = z.object({
   // Comma-separated emails of master admins (may register director accounts)
   MASTER_ADMIN_EMAILS: z.string().default(''),
 
+  // Optional shared secret for POST /jobs/run/:job (X-Cron-Secret header) —
+  // lets an external cron service (cron-job.org) wake a sleeping free-tier
+  // host and run the scheduled jobs reliably.
+  CRON_TRIGGER_SECRET: z.string().optional(),
+
   SEED_PROJECT_TITLE: z.string().optional(),
   SEED_PRODUCTION_HOUSE: z.string().optional(),
   SEED_DIRECTOR_NAME: z.string().optional(),

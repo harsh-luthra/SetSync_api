@@ -12,10 +12,11 @@ import { DIRECTION_ROLES } from '../types';
  * 8:00 PM daily (IST): if tomorrow's shoot_day exists and is still draft,
  * remind the admin roles to publish (spec §7).
  */
-async function run(): Promise<void> {
+export async function runTomorrowReminder(): Promise<{ projectsChecked: number; remindersSent: number }> {
   const projects = await listAllDocs<Project>(COL.PROJECTS, [
     Query.notEqual('status', 'wrapped'),
   ]);
+  let remindersSent = 0;
   for (const project of projects) {
     try {
       const tomorrow = await findShootDay(project.$id, 1);
@@ -29,15 +30,17 @@ async function run(): Promise<void> {
           deepLink: `setsync://shootday/${tomorrow.$id}`,
           sound: true,
         });
+        remindersSent++;
         logger.info({ projectId: project.$id, shootDayId: tomorrow.$id }, 'Publish reminder sent');
       }
     } catch (err) {
       logger.error({ err, projectId: project.$id }, 'tomorrowReminder failed for project');
     }
   }
+  return { projectsChecked: projects.length, remindersSent };
 }
 
 export function scheduleTomorrowReminder(): void {
-  cron.schedule('0 20 * * *', () => void run(), { timezone: APP_TIMEZONE });
+  cron.schedule('0 20 * * *', () => void runTomorrowReminder(), { timezone: APP_TIMEZONE });
   logger.info('Scheduled: tomorrowReminder (20:00 IST daily)');
 }

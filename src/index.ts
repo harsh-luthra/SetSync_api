@@ -12,6 +12,7 @@ import actorsRouter from './routes/actors';
 import attendanceRouter from './routes/attendance';
 import callsheetRouter from './routes/callsheet';
 import costumesRouter from './routes/costumes';
+import jobsRouter from './routes/jobs';
 import notificationsRouter from './routes/notifications';
 import masterRouter from './routes/master';
 import projectsRouter from './routes/projects';
@@ -52,6 +53,7 @@ api.use('/attendance', attendanceRouter);
 api.use('/script', scriptRouter);
 api.use('/callsheet', callsheetRouter);
 api.use('/notifications', notificationsRouter);
+api.use('/jobs', jobsRouter);
 app.use('/api/v1', api);
 
 app.use(notFoundHandler);

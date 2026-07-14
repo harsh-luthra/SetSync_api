@@ -1,7 +1,10 @@
 import { Router } from 'express';
-import { ID, Query } from 'node-appwrite';
+import multer from 'multer';
+import { ID, Permission, Query, Role as AwRole } from 'node-appwrite';
+import { InputFile } from 'node-appwrite/file';
 import { z } from 'zod';
-import { awUsers, teams } from '../config/appwrite';
+import { awUsers, BUCKETS, storage, teams } from '../config/appwrite';
+import { env } from '../config/env';
 import { logger } from '../config/logger';
 import { authenticate, verifyJwt } from '../middleware/auth';
 import { AppError, asyncHandler } from '../middleware/errorHandler';
@@ -189,6 +192,89 @@ router.post(
     await joinProjectTeam(projectId, authUserId, body.role, body.name);
 
     res.status(201).json({ profile, accountCreated: true, credentials: { email } });
+  }),
+);
+
+const avatarUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (/^image\/(jpeg|png|webp)$/.test(file.mimetype)) cb(null, true);
+    else cb(new AppError(422, 'Avatar must be a JPG, PNG or WebP image (max 5 MB)'));
+  },
+});
+
+/** Public view URL for an avatar file (per-file read:any permission). */
+const avatarUrl = (fileId: string): string =>
+  `${env.APPWRITE_ENDPOINT}/storage/buckets/${BUCKETS.AVATARS}/files/${fileId}/view?project=${env.APPWRITE_PROJECT}`;
+
+/** POST /users/me/avatar — multipart field "file"; replaces the old avatar. */
+router.post(
+  '/users/me/avatar',
+  ...authenticate,
+  avatarUpload.single('file'),
+  asyncHandler(async (req, res) => {
+    if (!req.file) throw new AppError(422, 'Multipart field "file" (image) is required');
+    const user = req.user!;
+
+    const ext = req.file.mimetype === 'image/png' ? 'png' : req.file.mimetype === 'image/webp' ? 'webp' : 'jpg';
+    const file = await storage.createFile(
+      BUCKETS.AVATARS,
+      ID.unique(),
+      InputFile.fromBuffer(req.file.buffer, `avatar-${user.userId}.${ext}`),
+      [Permission.read(AwRole.any())],
+    );
+
+    const current = await getDoc<UserProfile>(COL.USERS, user.userId);
+    const profile = await updateDoc<UserProfile>(COL.USERS, user.userId, {
+      avatarFileId: file.$id,
+    });
+    if (current.avatarFileId) {
+      storage.deleteFile(BUCKETS.AVATARS, current.avatarFileId).catch(() => undefined);
+    }
+
+    res.status(201).json({ profile, avatarUrl: avatarUrl(file.$id) });
+  }),
+);
+
+/**
+ * PATCH /crew/:id — direction roles manage a crew member: deactivate/
+ * reactivate (active), rename, or change role. Deactivation revokes the
+ * member's sessions and blocks all API access (auth middleware checks
+ * `active`). Guards: you cannot deactivate yourself; only the director
+ * may modify direction-role members or promote someone into one.
+ */
+router.patch(
+  '/crew/:id',
+  ...authenticate,
+  requireRole(DIRECTION_ROLES),
+  asyncHandler(async (req, res) => {
+    const body = z
+      .object({
+        active: z.boolean().optional(),
+        name: z.string().min(1).max(128).optional(),
+        role: z.enum(ALL_ROLES as [string, ...string[]]).optional(),
+      })
+      .parse(req.body);
+    const caller = req.user!;
+
+    const target = await getDoc<UserProfile>(COL.USERS, req.params.id);
+    if (target.projectId !== caller.projectId) throw new AppError(404, 'Crew member not found');
+    if (target.$id === caller.userId && body.active === false) {
+      throw new AppError(422, 'You cannot deactivate yourself');
+    }
+    const touchesDirection =
+      DIRECTION_ROLES.includes(target.role) ||
+      (body.role !== undefined && DIRECTION_ROLES.includes(body.role as (typeof DIRECTION_ROLES)[number]));
+    if (touchesDirection && caller.role !== 'director') {
+      throw new AppError(403, 'Only the director can modify direction-role members');
+    }
+
+    const profile = await updateDoc<UserProfile>(COL.USERS, req.params.id, body);
+    if (body.active === false && target.authUserId) {
+      await awUsers.deleteSessions(target.authUserId).catch(() => undefined);
+    }
+    res.json({ profile });
   }),
 );
 

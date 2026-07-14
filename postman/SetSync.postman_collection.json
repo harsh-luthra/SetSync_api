@@ -44,6 +44,31 @@
         {
           "name": "List crew (admin)",
           "request": { "method": "GET", "url": "{{baseUrl}}/crew" }
+        },
+        {
+          "name": "Manage crew member (deactivate/rename/role)",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/crew/:id",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"active\": false\n}" }
+          }
+        },
+        {
+          "name": "Upload my avatar",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/users/me/avatar",
+            "body": { "mode": "formdata", "formdata": [{ "key": "file", "type": "file", "src": [] }] }
+          }
+        },
+        {
+          "name": "Run job manually (master or X-Cron-Secret)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/jobs/run/tomorrowReminder",
+            "header": [{ "key": "X-Cron-Secret", "value": "{{cronSecret}}", "disabled": true }]
+          }
         }
       ]
     },
