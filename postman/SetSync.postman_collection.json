@@ -1,0 +1,312 @@
+{
+  "info": {
+    "name": "SetSync API",
+    "description": "SetSync backend (Node.js + Appwrite). Set `baseUrl` and `jwt` (Appwrite account JWT from the Flutter/Appwrite SDK) collection variables first.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{jwt}}", "type": "string" }]
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000/api/v1" },
+    { "key": "jwt", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Auth & Users",
+      "item": [
+        {
+          "name": "Bootstrap profile (after first login)",
+          "request": { "method": "POST", "url": "{{baseUrl}}/auth/bootstrap" }
+        },
+        {
+          "name": "Save FCM token",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/users/fcm-token",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"token\": \"<fcm-device-token>\"\n}" }
+          }
+        },
+        {
+          "name": "Invite crew member (admin)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/crew/invite",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"+919800000001\",\n  \"name\": \"Asha Rao\",\n  \"role\": \"actor\"\n}"
+            }
+          }
+        },
+        {
+          "name": "List crew (admin)",
+          "request": { "method": "GET", "url": "{{baseUrl}}/crew" }
+        }
+      ]
+    },
+    {
+      "name": "Shoot Days",
+      "item": [
+        {
+          "name": "Create shoot day",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/shootdays",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"date\": \"2026-07-15T00:00:00.000+05:30\",\n  \"dayNumber\": 1,\n  \"generalCallTime\": \"07:00\",\n  \"locationName\": \"Film City Stage 4\",\n  \"locationMapUrl\": \"https://maps.google.com/?q=Film+City\",\n  \"generalNotes\": \"Rain cover on standby.\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Update shoot day",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/shootdays/:id",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"generalCallTime\": \"08:00\"\n}" }
+          }
+        },
+        {
+          "name": "Publish shoot day (call sheet + fan-out)",
+          "request": { "method": "POST", "url": "{{baseUrl}}/shootdays/:id/publish" }
+        },
+        { "name": "Today (role-shaped)", "request": { "method": "GET", "url": "{{baseUrl}}/shootdays/today" } },
+        { "name": "Tomorrow (role-shaped)", "request": { "method": "GET", "url": "{{baseUrl}}/shootdays/tomorrow" } }
+      ]
+    },
+    {
+      "name": "Scenes",
+      "item": [
+        {
+          "name": "Create scene",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/scenes",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"shootDayId\": \"<shootDayId>\",\n  \"sceneNumber\": \"12A\",\n  \"intExt\": \"INT\",\n  \"dayNight\": \"DAY\",\n  \"locationName\": \"Living room set\",\n  \"synopsis\": \"Maya confronts Dev about the letter.\",\n  \"actorIds\": [\"<actorUserDocId>\"],\n  \"scriptPageStart\": 24,\n  \"scriptPageEnd\": 27\n}"
+            }
+          }
+        },
+        {
+          "name": "Update scene",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/scenes/:id",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"locationName\": \"Terrace set\"\n}" }
+          }
+        },
+        {
+          "name": "Reorder scenes",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/scenes/reorder",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    { \"sceneId\": \"<sceneId1>\", \"order\": 1 },\n    { \"sceneId\": \"<sceneId2>\", \"order\": 2 }\n  ]\n}"
+            }
+          }
+        },
+        {
+          "name": "Update scene status",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/scenes/:id/status",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"shooting\"\n}" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Actor",
+      "item": [
+        { "name": "My day (actor)", "request": { "method": "GET", "url": "{{baseUrl}}/actors/me/today" } },
+        { "name": "Request printed script", "request": { "method": "POST", "url": "{{baseUrl}}/actors/me/print-request" } },
+        { "name": "Mark print request done (admin)", "request": { "method": "PATCH", "url": "{{baseUrl}}/print-requests/:id/done" } }
+      ]
+    },
+    {
+      "name": "Costumes",
+      "item": [
+        { "name": "Today", "request": { "method": "GET", "url": "{{baseUrl}}/costumes/today" } },
+        { "name": "Tomorrow (published only)", "request": { "method": "GET", "url": "{{baseUrl}}/costumes/tomorrow" } },
+        {
+          "name": "Create costume",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/costumes",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"actorId\": \"<actorUserDocId>\",\n  \"sceneIds\": [\"<sceneId>\"],\n  \"costumeNumber\": \"C-07\",\n  \"lookDescription\": \"Blue kurta, distressed\",\n  \"accessories\": [\"watch\", \"scarf\"]\n}"
+            }
+          }
+        },
+        {
+          "name": "Update costume status (+broadcast)",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/costumes/:id/status",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"ready\",\n  \"broadcast\": true\n}" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Props",
+      "item": [
+        { "name": "Today", "request": { "method": "GET", "url": "{{baseUrl}}/props/today" } },
+        { "name": "Tomorrow", "request": { "method": "GET", "url": "{{baseUrl}}/props/tomorrow" } },
+        {
+          "name": "Inventory (filterable)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/props?status=purchased&q=lamp",
+              "host": ["{{baseUrl}}"],
+              "path": ["props"],
+              "query": [
+                { "key": "status", "value": "purchased", "disabled": true },
+                { "key": "q", "value": "lamp", "disabled": true }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create prop",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/props",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Vintage table lamp\",\n  \"quantity\": 2,\n  \"sceneIds\": [\"<sceneId>\"],\n  \"neededDate\": \"2026-07-15T00:00:00.000+05:30\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Update prop status (stage order enforced)",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/props/:id/status",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"purchased\"\n}" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Walkie",
+      "item": [
+        {
+          "name": "Send walkie event",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/walkie",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"type\": \"lunch_break\",\n  \"message\": \"Lunch at base camp\"\n}" }
+          }
+        },
+        { "name": "Today's feed", "request": { "method": "GET", "url": "{{baseUrl}}/walkie/today" } }
+      ]
+    },
+    {
+      "name": "Attendance",
+      "item": [
+        { "name": "Get rotating QR token (admin)", "request": { "method": "GET", "url": "{{baseUrl}}/attendance/qr-token" } },
+        {
+          "name": "Check in (scan QR)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/attendance/checkin",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"token\": \"<token-from-qr>\"\n}" }
+          }
+        },
+        {
+          "name": "Manual check-in (admin)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/attendance/checkin/manual",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"userId\": \"<userDocId>\"\n}" }
+          }
+        },
+        { "name": "Today summary (admin)", "request": { "method": "GET", "url": "{{baseUrl}}/attendance/today" } }
+      ]
+    },
+    {
+      "name": "Script",
+      "item": [
+        {
+          "name": "Upload master script PDF (admin)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/script/upload",
+            "body": {
+              "mode": "formdata",
+              "formdata": [{ "key": "file", "type": "file", "src": [] }]
+            }
+          }
+        },
+        { "name": "My watermarked script slice (actor)", "request": { "method": "GET", "url": "{{baseUrl}}/script/me" } }
+      ]
+    },
+    {
+      "name": "Call Sheet",
+      "item": [
+        { "name": "Get signed PDF URL", "request": { "method": "GET", "url": "{{baseUrl}}/callsheet/:shootDayId/pdf" } }
+      ]
+    },
+    {
+      "name": "Notifications",
+      "item": [
+        {
+          "name": "List my notifications",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/notifications?limit=25&offset=0",
+              "host": ["{{baseUrl}}"],
+              "path": ["notifications"],
+              "query": [
+                { "key": "limit", "value": "25" },
+                { "key": "offset", "value": "0" }
+              ]
+            }
+          }
+        },
+        { "name": "Mark read", "request": { "method": "PATCH", "url": "{{baseUrl}}/notifications/:id/read" } }
+      ]
+    },
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health check",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "http://localhost:3000/health",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["health"]
+            },
+            "auth": { "type": "noauth" }
+          }
+        }
+      ]
+    }
+  ]
+}
