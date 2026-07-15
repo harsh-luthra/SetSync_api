@@ -7,6 +7,7 @@ import { requireRole } from '../middleware/requireRole';
 import {
   COL,
   createDoc,
+  deleteDoc,
   getDoc,
   listAllDocs,
   updateDoc,
@@ -162,6 +163,18 @@ router.patch(
     }
 
     res.json({ costume, scenesFullyReady: readyScenes.map((s) => s.sceneNumber) });
+  }),
+);
+
+/** DELETE /costumes/:id */
+router.delete(
+  '/:id',
+  requireRole(COSTUME_ROLES),
+  asyncHandler(async (req, res) => {
+    const existing = await getDoc<Costume>(COL.COSTUMES, req.params.id);
+    if (existing.projectId !== req.user!.projectId) throw new AppError(404, 'Costume not found');
+    await deleteDoc(COL.COSTUMES, req.params.id);
+    res.json({ ok: true });
   }),
 );
 

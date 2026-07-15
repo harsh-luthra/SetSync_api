@@ -52,7 +52,7 @@ Login flow for every user type:
 - Project settings later: `GET /projects/me`, `PATCH /projects/me` `{title?,productionHouse?,status? (prep|shooting|wrapped),startDate?,endDate?}` (direction only). Include a status switcher.
 
 ### 3c. Direction (admin) screens
-- **Day editor:** `POST /shootdays` `{date,dayNumber,generalCallTime,locationName,locationMapUrl?,generalNotes?}`; `PATCH /shootdays/:id`.
+- **Day editor:** `POST /shootdays` `{date,dayNumber,generalCallTime,locationName,locationMapUrl?,generalNotes?}`; `PATCH /shootdays/:id`; `DELETE /shootdays/:id` — DRAFT days only (409 with explanation on published days), cascades scenes + actor calls; confirm dialog must say scenes/calls go with it.
 - **Scene editor:** `POST /scenes` `{shootDayId,sceneNumber,intExt,dayNight,locationName,synopsis?,actorIds[],scriptPageStart,scriptPageEnd}`; `PATCH /scenes/:id`; `PATCH /scenes/reorder` `{items:[{sceneId,order}]}`; `PATCH /scenes/:id/status` `{status: pending|ready|shooting|completed}`; `DELETE /scenes/:id`.
   Page-range validation: `GET /projects/me` → `project.scriptPageCount` (null until a script is uploaded). Cap the page pickers at it and label "of N pages"; warn if no script uploaded yet.
 - **Actor-call editor:** `GET /actor-calls?shootDayId=`; `POST /actor-calls` (UPSERT by shootDayId+actorId — one Save button, call repeatedly) `{shootDayId,actorId,pickupTime?,callTime?,makeupTime?,hairTime?,onSetTime?,lunchTime?,sceneIds?}`; `PATCH /actor-calls/:id`; `DELETE /actor-calls/:id`.
@@ -77,13 +77,16 @@ Login flow for every user type:
 - Actors have NO walkie send UI (server 403s it) — feed is read-only for them.
 
 ### 3e. Costume / Art screens
-- Costume: `GET /costumes/today|tomorrow` (tomorrow 404s until published) → `{shootDay,scenes,costumes}`; `POST /costumes` `{actorId,sceneIds,costumeNumber,lookDescription?,accessories[],tomorrowReady?}`; `PATCH /costumes/:id`; `PATCH /costumes/:id/status` `{status: pending|ready|on_actor|laundry|repair, broadcast?:bool}` — when the last costume of a scene turns ready, response includes `scenesFullyReady:["12A"]`; offer a "Broadcast scene ready" toggle (sends walkie event when true).
-- Art: `GET /props/today|tomorrow`; inventory `GET /props?status=&q=`; `POST /props` `{name,quantity,sceneIds?,notes?,neededDate?}`; `PATCH /props/:id/status` `{status}` — stage order ENFORCED one step forward/back: to_purchase→purchased→packed→on_set→returned (422 explains) → render as a stepper, not a free dropdown.
+- Costume: `GET /costumes/today|tomorrow` (tomorrow 404s until published) → `{shootDay,scenes,costumes}`; `POST /costumes` `{actorId,sceneIds,costumeNumber,lookDescription?,accessories[],tomorrowReady?}`; `PATCH /costumes/:id` (any field incl. sceneIds); `DELETE /costumes/:id`; `PATCH /costumes/:id/status` `{status: pending|ready|on_actor|laundry|repair, broadcast?:bool}` — when the last costume of a scene turns ready, response includes `scenesFullyReady:["12A"]`; offer a "Broadcast scene ready" toggle (sends walkie event when true).
+  **`sceneIds` is what links a costume to Today/Tomorrow lists — the add/edit form MUST include a scene picker (multi-select chips).** Source the scene list by reading the Appwrite `scenes` collection directly (team read is granted; filter `projectId`, group by shootDayId) or from the day endpoints.
+- Art: `GET /props/today|tomorrow`; inventory `GET /props?status=&q=`; `POST /props` `{name,quantity,sceneIds?,notes?,neededDate?}`; `PATCH /props/:id` `{name?,quantity?,sceneIds?,notes?,neededDate?}` (general edits); `DELETE /props/:id`; `PATCH /props/:id/status` `{status}` — stage order ENFORCED one step forward/back: to_purchase→purchased→packed→on_set→returned (422 explains) → render as a stepper, not a free dropdown.
+  Same rule: **the prop form needs the scene picker (and/or a neededDate picker)** — a prop with neither never appears on Today/Tomorrow.
 
 ### 3f. Shared screens
 - **Account / profile screen (ALL roles — identity is mandatory UX):**
   `GET /users/me` → `{profile, project:{id,title,productionHouse,status}|null, avatarUrl|null, isMaster}`.
-  Show: avatar (tap to change via `POST /users/me/avatar`), name, role badge, phone, email, project title + production house + status chip, and a **Logout** button (delete Appwrite session + clear local state). Also put a persistent identity chip in the app header/drawer on every screen: avatar + first name + role badge, tapping it opens this screen. Role badge colors suggested: direction = red/amber, actor = blue, costume = purple, art = green.
+  Show: avatar (tap to change via `POST /users/me/avatar`), name, role badge, phone, email, project title + production house + status chip, a **Change password** action, and a **Logout** button (delete Appwrite session + clear local state).
+  **Change password is CLIENT-SIDE — no API call:** `account.updatePassword(password: newPass, oldPassword: currentPass)` via the Appwrite SDK (requires the current password; wrong old password → 401, show inline). Also put a persistent identity chip in the app header/drawer on every screen: avatar + first name + role badge, tapping it opens this screen. Role badge colors suggested: direction = red/amber, actor = blue, costume = purple, art = green.
 - **Walkie feed:** load `GET /walkie/today`; live via Appwrite Realtime channel
   `databases.6a55900b00037bbfebf6.collections.walkie_events.documents`.
   Send (direction all types; costume: scene_ready/custom; art: custom): `POST /walkie` `{type,message?}`; types: scene_ready|artist_ready|camera_ready|lunch_break|pack_up|custom. 429 = rate limit → disable send 5 s. 409 = no published day today ("walkie offline").

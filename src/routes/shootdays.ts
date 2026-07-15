@@ -9,6 +9,7 @@ import { requireRole } from '../middleware/requireRole';
 import {
   COL,
   createDoc,
+  deleteDoc,
   getDoc,
   teamReadPerms,
   updateDoc,
@@ -90,6 +91,30 @@ router.patch(
     await getOwnShootDay(req.params.id, req.user!.projectId);
     const day = await updateDoc<ShootDay>(COL.SHOOT_DAYS, req.params.id, body);
     res.json({ shootDay: day });
+  }),
+);
+
+/**
+ * DELETE /shootdays/:id — direction only, DRAFT days only (published days
+ * are crew-facing history; complete them instead). Cascades: deletes the
+ * day's scenes and actor calls too.
+ */
+router.delete(
+  '/:id',
+  requireRole(DIRECTION_ROLES),
+  asyncHandler(async (req, res) => {
+    const day = await getOwnShootDay(req.params.id, req.user!.projectId);
+    if (day.status !== 'draft') {
+      throw new AppError(409, 'Only draft days can be deleted. Published days become history — mark them completed instead.');
+    }
+
+    const scenes = await scenesOfDay(day.$id);
+    const calls = await callsOfDay(day.$id);
+    for (const scene of scenes) await deleteDoc(COL.SCENES, scene.$id);
+    for (const call of calls) await deleteDoc(COL.ACTOR_CALLS, call.$id);
+    await deleteDoc(COL.SHOOT_DAYS, day.$id);
+
+    res.json({ ok: true, deletedScenes: scenes.length, deletedActorCalls: calls.length });
   }),
 );
 

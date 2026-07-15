@@ -155,6 +155,10 @@
           }
         },
         {
+          "name": "Delete shoot day (draft only, cascades)",
+          "request": { "method": "DELETE", "url": "{{baseUrl}}/shootdays/:id" }
+        },
+        {
           "name": "Call sheet preview (dry run, streams PDF)",
           "request": { "method": "GET", "url": "{{baseUrl}}/shootdays/:id/callsheet-preview" }
         },
@@ -295,6 +299,7 @@
             }
           }
         },
+        { "name": "Delete costume", "request": { "method": "DELETE", "url": "{{baseUrl}}/costumes/:id" } },
         {
           "name": "Update costume status (+broadcast)",
           "request": {
@@ -338,6 +343,16 @@
             }
           }
         },
+        {
+          "name": "Edit prop (name/qty/scenes/notes/date)",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/props/:id",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Vintage brass lamp\",\n  \"quantity\": 2,\n  \"sceneIds\": [\"<sceneId>\"]\n}" }
+          }
+        },
+        { "name": "Delete prop", "request": { "method": "DELETE", "url": "{{baseUrl}}/props/:id" } },
         {
           "name": "Update prop status (stage order enforced)",
           "request": {

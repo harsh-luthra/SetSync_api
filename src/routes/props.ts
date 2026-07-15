@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { authenticate } from '../middleware/auth';
 import { AppError, asyncHandler } from '../middleware/errorHandler';
 import { requireRole } from '../middleware/requireRole';
-import { COL, createDoc, getDoc, listAllDocs, updateDoc } from '../services/appwrite.service';
+import { COL, createDoc, deleteDoc, getDoc, listAllDocs, updateDoc } from '../services/appwrite.service';
 import { findShootDay, propsForScenes, scenesOfDay } from '../services/day.service';
 import type { Prop, PropStatus } from '../types';
 import { DIRECTION_ROLES, PROP_STAGE_ORDER, type Role } from '../types';
@@ -101,6 +101,40 @@ router.post(
       req.user!.projectId,
     );
     res.status(201).json({ prop });
+  }),
+);
+
+/** PATCH /props/:id — general edits (status changes go through /:id/status). */
+router.patch(
+  '/:id',
+  requireRole(ART_ROLES),
+  asyncHandler(async (req, res) => {
+    const body = z
+      .object({
+        name: z.string().min(1).max(256).optional(),
+        quantity: z.number().int().positive().optional(),
+        sceneIds: z.array(z.string()).optional(),
+        notes: z.string().max(2000).optional(),
+        neededDate: z.string().datetime({ offset: true }).nullable().optional(),
+      })
+      .parse(req.body);
+
+    const prop = await getDoc<Prop>(COL.PROPS, req.params.id);
+    if (prop.projectId !== req.user!.projectId) throw new AppError(404, 'Prop not found');
+    const updated = await updateDoc<Prop>(COL.PROPS, req.params.id, body);
+    res.json({ prop: updated });
+  }),
+);
+
+/** DELETE /props/:id */
+router.delete(
+  '/:id',
+  requireRole(ART_ROLES),
+  asyncHandler(async (req, res) => {
+    const prop = await getDoc<Prop>(COL.PROPS, req.params.id);
+    if (prop.projectId !== req.user!.projectId) throw new AppError(404, 'Prop not found');
+    await deleteDoc(COL.PROPS, req.params.id);
+    res.json({ ok: true });
   }),
 );
 

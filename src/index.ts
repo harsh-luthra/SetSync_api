@@ -34,7 +34,21 @@ app.use(
   }),
 );
 app.use(express.json({ limit: '1mb' }));
-app.use(pinoHttp({ logger, autoLogging: { ignore: (req) => req.url === '/health' } }));
+app.use(
+  pinoHttp({
+    logger,
+    autoLogging: { ignore: (req) => req.url === '/health' },
+    // Never write credentials into logs
+    redact: {
+      paths: [
+        'req.headers.authorization',
+        'req.headers["x-cron-secret"]',
+        'req.headers.cookie',
+      ],
+      censor: '[redacted]',
+    },
+  }),
+);
 
 app.get('/health', (_req, res) => res.json({ ok: true, service: 'setsync-api' }));
 
