@@ -73,6 +73,7 @@ The image installs Chromium for puppeteer (call-sheet PDF rendering).
 | Password reset | `POST /crew/:id/reset-password` — direction roles; only the director may reset another direction-role account; target's sessions are revoked |
 | Crew management | `PATCH /crew/:id` `{active?, name?, role?}` — deactivation revokes sessions and blocks all API access; only the director may touch direction-role members |
 | Avatars | `POST /users/me/avatar` (multipart `file`, jpg/png/webp ≤5 MB) → public `avatarUrl` |
+| Who am I | `GET /users/me` → profile + project summary + avatarUrl + isMaster (backs the account screen) |
 | Jobs | `POST /jobs/run/:job` (`tomorrowReminder` \| `midnightWrap`) — master JWT or `X-Cron-Secret` header; use with cron-job.org on hosts that sleep (Render free) |
 | Projects | `POST /projects` (in-app project setup, replaces SEED_* vars), `GET /projects/me`, `PATCH /projects/me` |
 | Shoot days | `POST /shootdays`, `PATCH /shootdays/:id`, `POST /shootdays/:id/publish`, `GET /shootdays/today\|tomorrow` (role-shaped) |

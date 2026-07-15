@@ -155,6 +155,10 @@
           }
         },
         {
+          "name": "Call sheet preview (dry run, streams PDF)",
+          "request": { "method": "GET", "url": "{{baseUrl}}/shootdays/:id/callsheet-preview" }
+        },
+        {
           "name": "Publish shoot day (call sheet + fan-out)",
           "request": { "method": "POST", "url": "{{baseUrl}}/shootdays/:id/publish" }
         },
@@ -256,6 +260,21 @@
       "item": [
         { "name": "My day (actor)", "request": { "method": "GET", "url": "{{baseUrl}}/actors/me/today" } },
         { "name": "Request printed script", "request": { "method": "POST", "url": "{{baseUrl}}/actors/me/print-request" } },
+        {
+          "name": "Print queue (direction)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/print-requests?status=requested",
+              "host": ["{{baseUrl}}"],
+              "path": ["print-requests"],
+              "query": [
+                { "key": "status", "value": "requested" },
+                { "key": "shootDayId", "value": "<shootDayId>", "disabled": true }
+              ]
+            }
+          }
+        },
         { "name": "Mark print request done (admin)", "request": { "method": "PATCH", "url": "{{baseUrl}}/print-requests/:id/done" } }
       ]
     },

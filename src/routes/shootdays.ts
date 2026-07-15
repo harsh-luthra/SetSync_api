@@ -94,6 +94,63 @@ router.patch(
 );
 
 /**
+ * GET /shootdays/:id/callsheet-preview — direction only. Renders the SAME
+ * call sheet PDF the publish step would generate, but changes nothing and
+ * notifies no one — a dry run for "Preview → looks good → Publish".
+ * Streams PDF bytes (JWT-authenticated, like /script/me). Also returns the
+ * publish validation verdict in the X-Publish-Issues header so the app can
+ * show the checklist alongside the preview.
+ */
+router.get(
+  '/:id/callsheet-preview',
+  requireRole(DIRECTION_ROLES),
+  asyncHandler(async (req, res) => {
+    const projectId = req.user!.projectId;
+    const day = await getOwnShootDay(req.params.id, projectId);
+
+    const scenes = await scenesOfDay(day.$id);
+    const calls = await callsOfDay(day.$id);
+    const crew = await crewOfProject(projectId);
+    const project = await getDoc<Project>(COL.PROJECTS, projectId);
+
+    const issues = validatePublish(scenes, calls, crew);
+
+    const model = buildCallSheetModel(project, day, scenes, calls, crew);
+    const pdf = await generateCallSheetPdf(model);
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="callsheet-day-${day.dayNumber}-preview.pdf"`);
+    res.setHeader('Cache-Control', 'no-store, private');
+    res.setHeader('X-Publish-Issues', encodeURIComponent(JSON.stringify(issues)));
+    res.send(pdf);
+  }),
+);
+
+/** Shared publish validation — returns human-readable issues (empty = publishable). */
+function validatePublish(
+  scenes: Awaited<ReturnType<typeof scenesOfDay>>,
+  calls: Awaited<ReturnType<typeof callsOfDay>>,
+  crew: UserProfile[],
+): string[] {
+  const nameOf = new Map(crew.map((u) => [u.$id, u.name]));
+  const issues: string[] = [];
+  if (scenes.length === 0) issues.push('No scenes have been added to this day');
+  for (const scene of scenes) {
+    if (scene.actorIds.length === 0) {
+      issues.push(`Scene ${scene.sceneNumber} has no actors assigned`);
+    }
+  }
+  const calledActorIds = new Set(calls.map((c) => c.actorId));
+  const dayActorIds = [...new Set(scenes.flatMap((s) => s.actorIds))];
+  for (const actorId of dayActorIds) {
+    if (!calledActorIds.has(actorId)) {
+      issues.push(`${nameOf.get(actorId) ?? actorId} has no call time entry`);
+    }
+  }
+  return issues;
+}
+
+/**
  * POST /shootdays/:id/publish — THE key workflow (spec §5):
  *  1. Validate: every scene has actors; every actor in scenes has an
  *     actor_call entry (else 422 with a human-readable missing list)
@@ -111,23 +168,9 @@ router.post(
     const scenes = await scenesOfDay(day.$id);
     const calls = await callsOfDay(day.$id);
     const crew = await crewOfProject(projectId);
-    const nameOf = new Map(crew.map((u) => [u.$id, u.name]));
 
     // --- 1. Validation ---
-    const issues: string[] = [];
-    if (scenes.length === 0) issues.push('No scenes have been added to this day');
-    for (const scene of scenes) {
-      if (scene.actorIds.length === 0) {
-        issues.push(`Scene ${scene.sceneNumber} has no actors assigned`);
-      }
-    }
-    const calledActorIds = new Set(calls.map((c) => c.actorId));
-    const dayActorIds = [...new Set(scenes.flatMap((s) => s.actorIds))];
-    for (const actorId of dayActorIds) {
-      if (!calledActorIds.has(actorId)) {
-        issues.push(`${nameOf.get(actorId) ?? actorId} has no call time entry`);
-      }
-    }
+    const issues = validatePublish(scenes, calls, crew);
     if (issues.length > 0) {
       throw new AppError(422, 'Cannot publish — fix these first', { issues });
     }

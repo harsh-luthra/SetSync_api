@@ -69,6 +69,7 @@ export interface Project extends AppwriteDoc {
   createdBy: string;
   scriptFileId?: string;
   scriptVersion?: number;
+  scriptPageCount?: number;
 }
 
 export interface ShootDay extends AppwriteDoc {

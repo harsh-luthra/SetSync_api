@@ -135,6 +135,7 @@ const COLLECTIONS: CollectionSpec[] = [
       { kind: 'string', key: 'createdBy', size: 64, required: true },
       { kind: 'string', key: 'scriptFileId', size: 36 },
       { kind: 'int', key: 'scriptVersion', min: 0 },
+      { kind: 'int', key: 'scriptPageCount', min: 0 },
     ],
     indexes: [{ key: 'idx_status', type: IndexType.Key, attributes: ['status'] }],
   },

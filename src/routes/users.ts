@@ -20,7 +20,7 @@ import {
   updateDoc,
 } from '../services/appwrite.service';
 import { findShootDay } from '../services/day.service';
-import type { AttendanceDoc, UserProfile } from '../types';
+import type { AttendanceDoc, Project, UserProfile } from '../types';
 import { ALL_ROLES, DIRECTION_ROLES } from '../types';
 
 const router = Router();
@@ -92,6 +92,27 @@ router.post(
     // No profile, no invite: signed in but projectless → app shows the
     // "create your project" form (or master dashboard for masters).
     res.json({ profile: null, created: false, needsSetup: true, isMaster });
+  }),
+);
+
+/**
+ * GET /users/me — "who am I": full profile + project summary + avatar URL.
+ * Backs the account/profile screen and the app header identity chip.
+ */
+router.get(
+  '/users/me',
+  ...authenticate,
+  asyncHandler(async (req, res) => {
+    const profile = await getDoc<UserProfile>(COL.USERS, req.user!.userId);
+    const project = await getDoc<Project>(COL.PROJECTS, req.user!.projectId).catch(() => null);
+    res.json({
+      profile,
+      project: project
+        ? { id: project.$id, title: project.title, productionHouse: project.productionHouse ?? '', status: project.status }
+        : null,
+      avatarUrl: profile.avatarFileId ? avatarUrl(profile.avatarFileId) : null,
+      isMaster: isMasterEmail(req.authUser?.email),
+    });
   }),
 );
 

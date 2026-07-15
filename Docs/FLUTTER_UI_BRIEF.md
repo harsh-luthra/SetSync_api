@@ -54,14 +54,18 @@ Login flow for every user type:
 ### 3c. Direction (admin) screens
 - **Day editor:** `POST /shootdays` `{date,dayNumber,generalCallTime,locationName,locationMapUrl?,generalNotes?}`; `PATCH /shootdays/:id`.
 - **Scene editor:** `POST /scenes` `{shootDayId,sceneNumber,intExt,dayNight,locationName,synopsis?,actorIds[],scriptPageStart,scriptPageEnd}`; `PATCH /scenes/:id`; `PATCH /scenes/reorder` `{items:[{sceneId,order}]}`; `PATCH /scenes/:id/status` `{status: pending|ready|shooting|completed}`; `DELETE /scenes/:id`.
+  Page-range validation: `GET /projects/me` → `project.scriptPageCount` (null until a script is uploaded). Cap the page pickers at it and label "of N pages"; warn if no script uploaded yet.
 - **Actor-call editor:** `GET /actor-calls?shootDayId=`; `POST /actor-calls` (UPSERT by shootDayId+actorId — one Save button, call repeatedly) `{shootDayId,actorId,pickupTime?,callTime?,makeupTime?,hairTime?,onSetTime?,lunchTime?,sceneIds?}`; `PATCH /actor-calls/:id`; `DELETE /actor-calls/:id`.
-- **Publish:** `POST /shootdays/:id/publish`. 422 → `details.issues` is a human-readable checklist ("Scene 12A has no actors assigned") — render verbatim in a pre-publish dialog. Success = call sheet PDF generated + push to all crew.
+- **Publish (two-step UX):**
+  1. Preview: `GET /shootdays/:id/callsheet-preview` — streams the EXACT call-sheet PDF (JWT header needed; changes nothing, notifies no one). The `X-Publish-Issues` response header carries a URL-encoded JSON array of human-readable blockers (empty array = publishable) — decode and show as a checklist next to the preview, with the Publish button disabled while non-empty.
+  2. Publish: `POST /shootdays/:id/publish`. 422 → same checklist in `details.issues`. Success = PDF stored + push to all crew.
+- **Print queue (direction):** `GET /print-requests` → `{printRequests:[{$id,actorName,status,$createdAt,shootDayId}], pendingCount}` (defaults to pending; `?status=done|all`, `?shootDayId=`). Mark done: `PATCH /print-requests/:id/done`. Show `pendingCount` as a badge on the direction home screen.
 - **Crew:** `GET /crew` → `{crew:[{id,name,phone,email,role,active,linked,avatarFileId,checkedInToday}]}`.
   - Invite: `POST /crew/invite` `{name,phone,role,email,password}` — ALWAYS send email+password (creates the sign-in account instantly, pre-verified). Show share-credentials card. 409 inline on duplicate.
   - Manage: `PATCH /crew/:id` `{active?,name?,role?}` — deactivate (confirm: "signed out + loses access immediately"), reactivate, rename, change role. 422 = own row (hide action), 403 = non-director touching direction roles (disable).
   - Reset password: `POST /crew/:id/reset-password` `{password}` → share-credentials card. 409 = no account yet (offer re-invite).
 - **Attendance:** `GET /attendance/qr-token` → `{token,expiresAt}` — render as QR, re-fetch every ~50 s. Summary: `GET /attendance/today`. Manual fallback: `POST /attendance/checkin/manual` `{userId}`.
-- **Script upload:** `POST /script/upload` multipart `file`, PDF ≤50 MB. Re-upload = new version (actors' cached slices regenerate automatically).
+- **Script upload:** `POST /script/upload` multipart `file`, PDF ≤50 MB → `{scriptVersion, scriptPageCount}` (show "92 pages · v3" as confirmation). Re-upload = new version (actors' cached slices regenerate automatically). 422 = not a readable PDF.
 - **Print requests:** notification deep-links; `PATCH /print-requests/:id/done`.
 - **Today/Tomorrow overview:** `GET /shootdays/today|tomorrow` → direction gets `{shootDay, scenes, actorCalls}` (drafts visible to direction only).
 
@@ -77,6 +81,9 @@ Login flow for every user type:
 - Art: `GET /props/today|tomorrow`; inventory `GET /props?status=&q=`; `POST /props` `{name,quantity,sceneIds?,notes?,neededDate?}`; `PATCH /props/:id/status` `{status}` — stage order ENFORCED one step forward/back: to_purchase→purchased→packed→on_set→returned (422 explains) → render as a stepper, not a free dropdown.
 
 ### 3f. Shared screens
+- **Account / profile screen (ALL roles — identity is mandatory UX):**
+  `GET /users/me` → `{profile, project:{id,title,productionHouse,status}|null, avatarUrl|null, isMaster}`.
+  Show: avatar (tap to change via `POST /users/me/avatar`), name, role badge, phone, email, project title + production house + status chip, and a **Logout** button (delete Appwrite session + clear local state). Also put a persistent identity chip in the app header/drawer on every screen: avatar + first name + role badge, tapping it opens this screen. Role badge colors suggested: direction = red/amber, actor = blue, costume = purple, art = green.
 - **Walkie feed:** load `GET /walkie/today`; live via Appwrite Realtime channel
   `databases.6a55900b00037bbfebf6.collections.walkie_events.documents`.
   Send (direction all types; costume: scene_ready/custom; art: custom): `POST /walkie` `{type,message?}`; types: scene_ready|artist_ready|camera_ready|lunch_break|pack_up|custom. 429 = rate limit → disable send 5 s. 409 = no published day today ("walkie offline").

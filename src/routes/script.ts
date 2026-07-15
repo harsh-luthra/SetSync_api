@@ -2,6 +2,7 @@ import { Router } from 'express';
 import multer from 'multer';
 import { ID } from 'node-appwrite';
 import { InputFile } from 'node-appwrite/file';
+import { PDFDocument } from 'pdf-lib';
 import { BUCKETS, storage } from '../config/appwrite';
 import { logger } from '../config/logger';
 import { authenticate } from '../middleware/auth';
@@ -37,6 +38,15 @@ router.post(
     if (!req.file) throw new AppError(422, 'Multipart field "file" (PDF) is required');
     const projectId = req.user!.projectId;
 
+    // Count pages up front — also validates the file is a real, readable PDF
+    let scriptPageCount: number;
+    try {
+      const pdf = await PDFDocument.load(req.file.buffer);
+      scriptPageCount = pdf.getPageCount();
+    } catch {
+      throw new AppError(422, 'The uploaded file is not a readable PDF');
+    }
+
     const file = await storage.createFile(
       BUCKETS.SCRIPTS,
       ID.unique(),
@@ -50,6 +60,7 @@ router.post(
     await updateDoc<Project>(COL.PROJECTS, projectId, {
       scriptFileId: file.$id,
       scriptVersion: version,
+      scriptPageCount,
     });
 
     if (previousFileId) {
@@ -59,7 +70,7 @@ router.post(
     }
 
     // Never expose the master fileId to clients
-    res.status(201).json({ ok: true, scriptVersion: version });
+    res.status(201).json({ ok: true, scriptVersion: version, scriptPageCount });
   }),
 );
 

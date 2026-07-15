@@ -1,9 +1,10 @@
 import { Router } from 'express';
 import { Query } from 'node-appwrite';
+import { z } from 'zod';
 import { authenticate } from '../middleware/auth';
 import { AppError, asyncHandler } from '../middleware/errorHandler';
 import { requireRole } from '../middleware/requireRole';
-import { COL, createDoc, getDoc, listDocs, updateDoc } from '../services/appwrite.service';
+import { COL, createDoc, getDoc, listAllDocs, listDocs, updateDoc } from '../services/appwrite.service';
 import { findShootDay, shapeDayForRole } from '../services/day.service';
 import { notify } from '../services/notification.service';
 import type { PrintRequest } from '../types';
@@ -102,6 +103,35 @@ router.post(
     });
 
     res.status(201).json({ printRequest, created: true });
+  }),
+);
+
+/**
+ * GET /print-requests — direction: the print queue. Defaults to pending
+ * (`status=requested`); pass ?status=done or ?status=all for history,
+ * and ?shootDayId= to scope to one day.
+ */
+router.get(
+  '/print-requests',
+  ...authenticate,
+  requireRole(DIRECTION_ROLES),
+  asyncHandler(async (req, res) => {
+    const query = z
+      .object({
+        status: z.enum(['requested', 'done', 'all']).default('requested'),
+        shootDayId: z.string().optional(),
+      })
+      .parse(req.query);
+
+    const filters = [
+      Query.equal('projectId', req.user!.projectId),
+      Query.orderDesc('$createdAt'),
+    ];
+    if (query.status !== 'all') filters.push(Query.equal('status', query.status));
+    if (query.shootDayId) filters.push(Query.equal('shootDayId', query.shootDayId));
+
+    const printRequests = await listAllDocs<PrintRequest>(COL.PRINT_REQUESTS, filters);
+    res.json({ printRequests, pendingCount: printRequests.filter((p) => p.status === 'requested').length });
   }),
 );
 
